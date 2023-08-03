@@ -30,7 +30,7 @@ unsigned int loadCubemap(vector<std::string> faces);
 
 void renderQuad();
 
-
+unsigned int loadTexture(char const *path);
 
 // settings
 const unsigned int SCR_WIDTH = 1600;
@@ -38,6 +38,7 @@ const unsigned int SCR_HEIGHT = 1200;
 bool bloom = true;
 bool bloomKeyPressed = false;
 float exposure = 1.0f;
+float motoX =-35.0f;
 // camera
 
 float lastX = SCR_WIDTH / 2.0f;
@@ -168,18 +169,24 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     //faceCulling
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
-    glFrontFace(GL_CW);
+    glCullFace(GL_BACK);
+    //blendinge
+    glEnable(GL_BLEND);
+
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader shaderBlur("resources/shaders/blur.vs", "resources/shaders/blur.fs");
     Shader shaderBloomFinal("resources/shaders/bloom_final.vs", "resources/shaders/bloom_final.fs");
+    Shader birdsShader("resources/shaders/birds.vs", "resources/shaders/birds.fs");
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    ourModel.SetShaderTextureNamePrefix("material.");
+    Model cityModel("resources/objects/city/Apocalyptic City.obj");
+    cityModel.SetShaderTextureNamePrefix("material.");
+
+    Model motorModel("resources/objects/motor/untitled.obj");
+    cityModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
@@ -187,9 +194,9 @@ int main() {
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
-    pointLight.constant = 0.6f;
+    pointLight.constant = 0.2f;
     pointLight.linear = 0.1f;
-    pointLight.quadratic = 0.04f;
+    pointLight.quadratic = 0.1f;
 
     //Bloom/HDR
     // configure framebuffers
@@ -294,6 +301,24 @@ int main() {
             1.0f, -1.0f,  1.0f
     };
 
+    //------------------------------------birds vertices----------------------------------------------------------------
+    float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+
+    //birds positions
+    vector<float> birdsRadius;
+    for(int i =0;i<30;i++){
+        birdsRadius.push_back(rand()%40+5);
+    }
+
     //______________________________________skybox VAO_________________________________________________________
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
@@ -303,6 +328,20 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    //--------------------------------------------birds VAO-------------------------------------------------------------
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+    //Load textures
+    unsigned int birdsTexture = loadTexture(FileSystem::getPath("resources/textures/bird.png").c_str());
     // ______________________________________load textures for skybox________________________________________________________
     vector<std::string> faces =
             {
@@ -369,12 +408,12 @@ int main() {
 
         //---------------------------------------Lighting---------------------------------------------------------
         // dirlight
-        ourShader.setVec3("dirLight.direction", glm::vec3(1.25f,-4.6f,-1.2f));
-        ourShader.setVec3("dirLight.ambient", glm::vec3(0.1f));
-        ourShader.setVec3("dirLight.diffuse", glm::vec3(0.15f));
-        ourShader.setVec3("dirLight.specular", glm::vec3(0.3f));
+        ourShader.setVec3("dirLight.direction", glm::vec3(0.0f,-10.0f,-10.0f));
+        ourShader.setVec3("dirLight.ambient", glm::vec3(0.5f));
+        ourShader.setVec3("dirLight.diffuse", glm::vec3(0.3f));
+        ourShader.setVec3("dirLight.specular", glm::vec3(0.2f));
         //light 1
-        ourShader.setVec3("pointLights[0].position", glm::vec3(-6.0f,3.0f-5*(sin(currentFrame)*0.5f+0.5f),-13.0f));
+        ourShader.setVec3("pointLights[0].position", glm::vec3(motoX ,-6.55f, 20.0f)+glm::vec3(2.3f,2.0f,0.0f));
         ourShader.setVec3("pointLights[0].ambient", pointLight.ambient);
         ourShader.setVec3("pointLights[0].diffuse", pointLight.diffuse);
         ourShader.setVec3("pointLights[0].specular", pointLight.specular);
@@ -382,22 +421,67 @@ int main() {
         ourShader.setFloat("pointLights[0].linear", pointLight.linear);
         ourShader.setFloat("pointLights[0].quadratic", pointLight.quadratic);
         //light 2
-        ourShader.setVec3("pointLights[1].position", glm::vec3(-10.0f+7*(sin(currentFrame)*0.5f+0.5f),0.45f,-11.4f+1.8f*(sin(currentFrame*3)*0.5f+0.5f)));
-        ourShader.setVec3("pointLights[1].ambient", pointLight.ambient);
-        ourShader.setVec3("pointLights[1].diffuse", pointLight.diffuse);
-        ourShader.setVec3("pointLights[1].specular", pointLight.specular);
+        ourShader.setVec3("pointLights[1].position", glm::vec3(motoX ,-6.55f, 20.0f)+glm::vec3(-2.3f,2.0f,0.0f));
+        ourShader.setVec3("pointLights[1].ambient", glm::vec3(0.2f,0.0f,0.0f));
+        ourShader.setVec3("pointLights[1].diffuse", glm::vec3(0.5f,0.0f,0.0f));
+        ourShader.setVec3("pointLights[1].specular", glm::vec3(0.5f,0.0f,0.0f));
         ourShader.setFloat("pointLights[1].constant", pointLight.constant);
         ourShader.setFloat("pointLights[1].linear", pointLight.linear);
         ourShader.setFloat("pointLights[1].quadratic", pointLight.quadratic);
 
         // render the loaded model
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-        ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
+        //____________________________________________________________________________________________
+        //render obj
+//        glm::mat4 model = glm::mat4(1.0f);
+//        model = glm::translate(modelBox,programState->vecCalibrate);
+//        model = glm::scale(modelBox, glm::vec3(programState->fineCalibrate));
+//        model = glm::rotate(modelBox,glm::radians(programState->vecRotate.x), glm::vec3(1.0f ,0.0f, 0.0f));
+//        model = glm::rotate(modelBox,glm::radians(programState->vecRotate.y), glm::vec3(0.0f ,1.0f, 0.0f));
+//        model = glm::rotate(modelBox,glm::radians(programState->vecRotate.z), glm::vec3(0.0f ,0.0f, 1.0f));
+//        ourShader.setMat4("model", model);
+//        objModel.Draw(ourShader);
+        //---------------------------------------------------------------------------------
+        //city
+        glm::mat4 modelCity = glm::mat4(1.0f);
+        modelCity = glm::translate(modelCity,glm::vec3(-11.0f ,-6.0f, 6.0f));
+        modelCity = glm::scale(modelCity, glm::vec3(0.06f));
+        ourShader.setMat4("model", modelCity);
+        cityModel.Draw(ourShader);
 
+        //motor
+        motoX+=0.2f;
+        if (motoX>=85.0f){
+            motoX = -35.0f;
+        }
+        glm::mat4 modelMotor = glm::mat4(1.0f);
+        modelMotor = glm::translate(modelMotor,glm::vec3(motoX ,-6.55f, 20.0f));
+//        modelMotor = glm::translate(modelMotor,programState->vecCalibrate);
+        modelMotor = glm::scale(modelMotor, glm::vec3(2.0f));
+        modelMotor = glm::rotate(modelMotor,glm::radians(10.0f*sin(currentFrame*2)), glm::vec3(1.0f ,0.0f, 0.0f));
+        ourShader.setMat4("model", modelMotor);
+        motorModel.Draw(ourShader);
+
+        //faceCulling
+        glDisable(GL_CULL_FACE);
+        // birds
+        birdsShader.use();
+        glm::mat4 modelBirds = glm::mat4(1.0f);
+        birdsShader.setMat4("projection", projection);
+        birdsShader.setMat4("view", view);
+        glBindVertexArray(transparentVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, birdsTexture);
+        for (unsigned int i = 0; i < 50; i++)
+        {
+            modelBirds = glm::mat4(1.0f);
+            modelBirds = glm::scale(modelBirds, glm::vec3(1.5f));
+            modelBirds = glm::translate(modelBirds, glm::vec3((birdsRadius[i]+sin(currentFrame))*cos(currentFrame*birdsRadius[i]/50)+10.0f,10.0f,(birdsRadius[i]+sin(currentFrame))*sin(currentFrame*birdsRadius[i]/51)-5.0f));
+            modelBirds = glm::rotate(modelBirds,glm::radians(-90.0f), glm::vec3(1.0f ,0.0f, 0.0f));
+            birdsShader.setMat4("model", modelBirds);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+        //faceCulling
+        glEnable(GL_CULL_FACE);
         //______________________________________draw skybox_____________________________________________________
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
@@ -519,15 +603,11 @@ void DrawImGui(ProgramState *programState) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-
     {
         static float f = 0.0f;
-        ImGui::Begin("Hello window");
-        ImGui::Text("Hello text");
-        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
+        ImGui::Begin("Settings");
+        ImGui::Text("Settings");
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -557,6 +637,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         } else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            programState->CameraMouseMovementUpdateEnabled = true;
         }
     }
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS && !bloomKeyPressed)
@@ -638,4 +719,41 @@ void renderQuad()
     glBindVertexArray(quadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+unsigned int loadTexture(char const *path)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
 }
